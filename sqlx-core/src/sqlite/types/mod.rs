@@ -19,9 +19,9 @@
 //! a potentially `NULL` value from SQLite.
 //!
 
-use crate::decode::Decode;
-use crate::sqlite::value::SqliteValue;
-use crate::sqlite::Sqlite;
+use crate::decode::{Decode, Error};
+use crate::sqlite::{Sqlite, SqliteTypeInfo, SqliteValueRef};
+use crate::types::Type;
 
 mod bool;
 mod bytes;
@@ -29,15 +29,15 @@ mod float;
 mod int;
 mod str;
 
-impl<'de, T> Decode<'de, Sqlite> for Option<T>
+impl<'r, T> Decode<'r, Sqlite> for Option<T>
 where
-    T: Decode<'de, Sqlite>,
+    T: Decode<'r, Sqlite>,
 {
-    fn decode(value: SqliteValue<'de>) -> crate::Result<Self> {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, Error> {
         if value.is_null() {
             Ok(None)
         } else {
-            <T as Decode<Sqlite>>::decode(value).map(Some)
+            Ok(Some(T::decode(value)?))
         }
     }
 }

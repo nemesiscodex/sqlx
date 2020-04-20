@@ -1,45 +1,49 @@
-use crate::decode::Decode;
-use crate::encode::Encode;
-use crate::error::UnexpectedNullError;
-use crate::sqlite::type_info::{SqliteType, SqliteTypeAffinity};
-use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteTypeInfo, SqliteValue};
+use std::borrow::Cow;
+
+use crate::database::{Database, HasArguments};
+use crate::decode::{Decode, Error};
+use crate::encode::{Encode, IsNull};
+use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteArguments, SqliteTypeInfo, SqliteValueRef};
 use crate::types::Type;
 
-impl Type<Sqlite> for str {
+impl Type<Sqlite> for &'_ str {
     fn type_info() -> SqliteTypeInfo {
-        SqliteTypeInfo::new(SqliteType::Text, SqliteTypeAffinity::Text)
+        SqliteTypeInfo::TEXT
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for &'q str {
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values
+            .push(SqliteArgumentValue::Text(Cow::Borrowed(self)));
+
+        IsNull::No
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for &'r str {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, Error> {
+        value.text()
     }
 }
 
 impl Type<Sqlite> for String {
     fn type_info() -> SqliteTypeInfo {
-        <str as Type<Sqlite>>::type_info()
+        <&str as Type<Sqlite>>::type_info()
     }
 }
 
-impl Encode<Sqlite> for str {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        // TODO: look into a way to remove this allocation
-        values.push(SqliteArgumentValue::Text(self.to_owned()));
+impl<'q> Encode<'q, Sqlite> for String {
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values
+            .push(SqliteArgumentValue::Text(Cow::Owned(self)));
+
+        IsNull::No
     }
 }
 
-impl Encode<Sqlite> for String {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        <str as Encode<Sqlite>>::encode(self, values)
-    }
-}
-
-impl<'de> Decode<'de, Sqlite> for &'de str {
-    fn decode(value: SqliteValue<'de>) -> crate::Result<&'de str> {
-        value
-            .text()
-            .ok_or_else(|| crate::Error::decode(UnexpectedNullError))
-    }
-}
-
-impl<'de> Decode<'de, Sqlite> for String {
-    fn decode(value: SqliteValue<'de>) -> crate::Result<String> {
-        <&str as Decode<Sqlite>>::decode(value).map(ToOwned::to_owned)
+impl<'r> Decode<'r, Sqlite> for String {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, Error> {
+        value.text().map(ToOwned::to_owned)
     }
 }

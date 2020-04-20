@@ -1,8 +1,7 @@
 use sqlx::Sqlite;
 use sqlx_test::new;
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn macro_select() -> anyhow::Result<()> {
     let mut conn = new::<Sqlite>().await?;
 
@@ -17,8 +16,7 @@ async fn macro_select() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn macro_select_bind() -> anyhow::Result<()> {
     let mut conn = new::<Sqlite>().await?;
 
@@ -43,8 +41,7 @@ struct RawAccount {
     is_active: Option<bool>,
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn test_query_as_raw() -> anyhow::Result<()> {
     let mut conn = new::<Sqlite>().await?;
 
@@ -59,8 +56,7 @@ async fn test_query_as_raw() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn macro_select_from_view() -> anyhow::Result<()> {
     let mut conn = new::<Sqlite>().await?;
 

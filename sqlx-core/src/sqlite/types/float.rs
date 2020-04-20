@@ -1,41 +1,50 @@
-use crate::decode::Decode;
-use crate::encode::Encode;
-use crate::sqlite::type_info::{SqliteType, SqliteTypeAffinity};
-use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteTypeInfo, SqliteValue};
+use crate::decode::{Decode, Error};
+use crate::encode::{Encode, IsNull};
+use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteArguments, SqliteTypeInfo, SqliteValueRef};
 use crate::types::Type;
 
 impl Type<Sqlite> for f32 {
+    #[inline]
     fn type_info() -> SqliteTypeInfo {
-        SqliteTypeInfo::new(SqliteType::Float, SqliteTypeAffinity::Real)
+        SqliteTypeInfo::DOUBLE
     }
 }
 
-impl Encode<Sqlite> for f32 {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        values.push(SqliteArgumentValue::Double((*self).into()));
+impl<'q> Encode<'q, Sqlite> for f32 {
+    #[inline]
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values.push(SqliteArgumentValue::Double(self.into()));
+
+        IsNull::No
     }
 }
 
-impl<'a> Decode<'a, Sqlite> for f32 {
-    fn decode(value: SqliteValue<'a>) -> crate::Result<f32> {
+impl<'r> Decode<'r, Sqlite> for f32 {
+    #[inline]
+    fn decode(value: SqliteValueRef<'r>) -> Result<f32, Error> {
         Ok(value.double() as f32)
     }
 }
 
 impl Type<Sqlite> for f64 {
+    #[inline]
     fn type_info() -> SqliteTypeInfo {
-        SqliteTypeInfo::new(SqliteType::Float, SqliteTypeAffinity::Real)
+        SqliteTypeInfo::DOUBLE
     }
 }
 
-impl Encode<Sqlite> for f64 {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        values.push(SqliteArgumentValue::Double((*self).into()));
+impl<'q> Encode<'q, Sqlite> for f64 {
+    #[inline]
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values.push(SqliteArgumentValue::Double(self));
+
+        IsNull::No
     }
 }
 
-impl<'a> Decode<'a, Sqlite> for f64 {
-    fn decode(value: SqliteValue<'a>) -> crate::Result<f64> {
+impl<'r> Decode<'r, Sqlite> for f64 {
+    #[inline]
+    fn decode(value: SqliteValueRef<'r>) -> Result<f64, Error> {
         Ok(value.double())
     }
 }

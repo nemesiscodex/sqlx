@@ -1,4 +1,4 @@
-use sqlx::{Connect, Database};
+use sqlx::{database::Database, Connect};
 
 fn setup_if_needed() {
     let _ = dotenv::dotenv();
@@ -13,20 +13,26 @@ where
 {
     setup_if_needed();
 
-    Ok(DB::Connection::connect(dotenv::var("DATABASE_URL")?).await?)
+    Ok(DB::Connection::connect(&dotenv::var("DATABASE_URL")?).await?)
 }
 
 // Test type encoding and decoding
 #[macro_export]
 macro_rules! test_type {
-    ($name:ident($db:ident, $ty:ty, $sql:literal, $($text:literal == $value:expr),+ $(,)?)) => {
+    ($name:ident<$ty:ty>($db:ident, $sql:literal, $($text:literal == $value:expr),+ $(,)?)) => {
         $crate::test_prepared_type!($name($db, $ty, $sql, $($text == $value),+));
         $crate::test_unprepared_type!($name($db, $ty, $($text == $value),+));
     };
 
-    ($name:ident($db:ident, $ty:ty, $($text:literal == $value:expr),+ $(,)?)) => {
-        $crate::test_prepared_type!($name($db, $ty, $($text == $value),+));
-        $crate::test_unprepared_type!($name($db, $ty, $($text == $value),+));
+    ($name:ident<$ty:ty>($db:ident, $($text:literal == $value:expr),+ $(,)?)) => {
+        paste::item! {
+            $crate::test_prepared_type!($name($db, $ty, $crate::[< $db _query_for_test_prepared_type >]!(), $($text == $value),+));
+            $crate::test_unprepared_type!($name($db, $ty, $($text == $value),+));
+        }
+    };
+
+    ($name:ident($db:ident, $($text:literal == $value:expr),+ $(,)?)) => {
+        $crate::test_type!($name<$name>($db, $($text == $value),+));
     };
 }
 
@@ -35,20 +41,22 @@ macro_rules! test_type {
 macro_rules! test_unprepared_type {
     ($name:ident($db:ident, $ty:ty, $($text:literal == $value:expr),+ $(,)?)) => {
         paste::item! {
-            #[cfg_attr(feature = "runtime-async-std", async_std::test)]
-            #[cfg_attr(feature = "runtime-tokio", tokio::test)]
+            #[sqlx_rt::test]
             async fn [< test_unprepared_type_ $name >] () -> anyhow::Result<()> {
                 use sqlx::prelude::*;
+                use futures::TryStreamExt;
 
                 let mut conn = sqlx_test::new::<$db>().await?;
 
                 $(
-                    let query = format!("SELECT {} as _1", $text);
-                    let mut cursor = conn.fetch(&*query);
-                    let row = cursor.next().await?.unwrap();
-                    let rec = row.try_get::<$ty, _>("_1")?;
+                    let query = format!("SELECT {}", $text);
+                    let mut s = conn.fetch(&*query);
+                    let row = s.try_next().await?.unwrap();
+                    let rec = row.try_get::<$ty, _>(0)?;
 
                     assert!($value == rec);
+
+                    drop(s);
                 )+
 
                 Ok(())
@@ -57,70 +65,21 @@ macro_rules! test_unprepared_type {
     }
 }
 
-// TODO: This macro is cursed. Needs a good re-factor.
 // Test type encoding and decoding for the prepared query API
 #[macro_export]
 macro_rules! test_prepared_type {
-    ($name:ident($db:ident, $ty:ty, $sql:literal, $($text:literal == $value:expr),+ $(,)?)) => {
+    ($name:ident($db:ident, $ty:ty, $sql:expr, $($text:literal == $value:expr),+ $(,)?)) => {
         paste::item! {
-            #[cfg_attr(feature = "runtime-async-std", async_std::test)]
-            #[cfg_attr(feature = "runtime-tokio", tokio::test)]
+            #[sqlx_rt::test]
             async fn [< test_prepared_type_ $name >] () -> anyhow::Result<()> {
-                use sqlx::prelude::*;
-
                 let mut conn = sqlx_test::new::<$db>().await?;
 
                 $(
                     let query = format!($sql, $text);
 
-                    let rec: (bool, Option<String>, $ty, $ty) = sqlx::query_as(&query)
-                        .bind($value)
-                        .bind($value)
-                        .bind($value)
-                        .fetch_one(&mut conn)
-                        .await?;
+                    println!("about to exec: {}", query);
 
-                    assert!(rec.0,
-                            "[1] DB value mismatch; given value: {:?}\n\
-                             as received: {:?}\n\
-                             as returned: {:?}\n\
-                             round-trip: {:?}",
-                            $value, rec.1, rec.2, rec.3);
-
-                    assert_eq!($value, rec.2,
-                            "[2] DB value mismatch; given value: {:?}\n\
-                                     as received: {:?}\n\
-                                     as returned: {:?}\n\
-                                     round-trip: {:?}",
-                                    $value, rec.1, rec.2, rec.3);
-
-                    assert_eq!($value, rec.3,
-                            "[3] DB value mismatch; given value: {:?}\n\
-                                     as received: {:?}\n\
-                                     as returned: {:?}\n\
-                                     round-trip: {:?}",
-                                    $value, rec.1, rec.2, rec.3);
-                )+
-
-                Ok(())
-            }
-        }
-    };
-
-    ($name:ident($db:ident, $ty:ty, $($text:literal == $value:expr),+ $(,)?)) => {
-        paste::item! {
-            #[cfg_attr(feature = "runtime-async-std", async_std::test)]
-            #[cfg_attr(feature = "runtime-tokio", tokio::test)]
-            async fn [< test_prepared_type_ $name >] () -> anyhow::Result<()> {
-                use sqlx::prelude::*;
-
-                let mut conn = sqlx_test::new::<$db>().await?;
-
-                $(
-                    let query = format!($crate::[< $db _query_for_test_prepared_type >]!(), $text);
-
-                    let rec: (bool, Option<String>, $ty, $ty) = sqlx::query_as(&query)
-                        .bind($value)
+                    let rec: (bool, $ty, $ty) = sqlx::query_as(&query)
                         .bind($value)
                         .bind($value)
                         .fetch_one(&mut conn)
@@ -128,24 +87,21 @@ macro_rules! test_prepared_type {
 
                     assert!(rec.0,
                             "[1] DB value mismatch; given value: {:?}\n\
-                             as received: {:?}\n\
                              as returned: {:?}\n\
                              round-trip: {:?}",
-                            $value, rec.1, rec.2, rec.3);
+                            $value, rec.1, rec.2);
+
+                    assert_eq!($value, rec.1,
+                            "[2] DB value mismatch; given value: {:?}\n\
+                                     as returned: {:?}\n\
+                                     round-trip: {:?}",
+                                    $value, rec.1, rec.2);
 
                     assert_eq!($value, rec.2,
-                            "[2] DB value mismatch; given value: {:?}\n\
-                                     as received: {:?}\n\
-                                     as returned: {:?}\n\
-                                     round-trip: {:?}",
-                                    $value, rec.1, rec.2, rec.3);
-
-                    assert_eq!($value, rec.3,
                             "[3] DB value mismatch; given value: {:?}\n\
-                                     as received: {:?}\n\
                                      as returned: {:?}\n\
                                      round-trip: {:?}",
-                                    $value, rec.1, rec.2, rec.3);
+                                    $value, rec.1, rec.2);
                 )+
 
                 Ok(())
@@ -157,20 +113,20 @@ macro_rules! test_prepared_type {
 #[macro_export]
 macro_rules! MySql_query_for_test_prepared_type {
     () => {
-        "SELECT {0} <=> ?, '<UNKNOWN>' as _1, ? as _2, ? as _3"
+        "SELECT {0} <=> ?, {0}, ?"
     };
 }
 
 #[macro_export]
 macro_rules! Sqlite_query_for_test_prepared_type {
     () => {
-        "SELECT {0} is ?, cast(? as text) as _1, {0} as _2, ? as _3"
+        "SELECT {0} is ?, {0}, ?"
     };
 }
 
 #[macro_export]
 macro_rules! Postgres_query_for_test_prepared_type {
     () => {
-        "SELECT {0} is not distinct from $1, $2::text as _1, {0} as _2, $3 as _3"
+        "SELECT {0} is not distinct from $1, {0}, $2"
     };
 }

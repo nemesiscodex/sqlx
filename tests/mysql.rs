@@ -3,14 +3,12 @@ use sqlx::{mysql::MySqlQueryAs, Connection, Executor, MySql, MySqlPool};
 use sqlx_test::new;
 use std::time::Duration;
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn it_connects() -> anyhow::Result<()> {
     Ok(new::<MySql>().await?.ping().await?)
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn it_drops_results_in_affected_rows() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 
@@ -23,8 +21,7 @@ async fn it_drops_results_in_affected_rows() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn it_executes() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 
@@ -55,8 +52,7 @@ CREATE TEMPORARY TABLE users (id INTEGER PRIMARY KEY)
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn it_selects_null() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 
@@ -67,8 +63,7 @@ async fn it_selects_null() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn test_describe() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 
@@ -133,8 +128,7 @@ async fn test_describe() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn pool_immediately_fails_with_db_error() -> anyhow::Result<()> {
     // Malform the database url by changing the password
     let url = dotenv::var("DATABASE_URL")?.replace("password", "not-the-password");
@@ -158,8 +152,7 @@ async fn pool_immediately_fails_with_db_error() -> anyhow::Result<()> {
 
 // run with `cargo test --features mysql -- --ignored --nocapture pool_smoke_test`
 #[ignore]
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn pool_smoke_test() -> anyhow::Result<()> {
     #[cfg(feature = "runtime-tokio")]
     use tokio::{task::spawn, time::delay_for as sleep, time::timeout};
@@ -215,8 +208,7 @@ async fn pool_smoke_test() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn test_fetch_one_and_ping() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 

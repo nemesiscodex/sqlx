@@ -1,23 +1,27 @@
-use crate::decode::Decode;
-use crate::encode::Encode;
-use crate::sqlite::type_info::{SqliteType, SqliteTypeAffinity};
-use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteTypeInfo, SqliteValue};
+use crate::decode::{Decode, Error};
+use crate::encode::{Encode, IsNull};
+use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteArguments, SqliteTypeInfo, SqliteValueRef};
 use crate::types::Type;
 
 impl Type<Sqlite> for bool {
+    #[inline]
     fn type_info() -> SqliteTypeInfo {
-        SqliteTypeInfo::new(SqliteType::Boolean, SqliteTypeAffinity::Numeric)
+        SqliteTypeInfo::BOOL
     }
 }
 
-impl Encode<Sqlite> for bool {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        values.push(SqliteArgumentValue::Int((*self).into()));
+impl<'q> Encode<'q, Sqlite> for bool {
+    #[inline]
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values.push(SqliteArgumentValue::Int(self.into()));
+
+        IsNull::No
     }
 }
 
-impl<'a> Decode<'a, Sqlite> for bool {
-    fn decode(value: SqliteValue<'a>) -> crate::Result<bool> {
+impl<'r> Decode<'r, Sqlite> for bool {
+    #[inline]
+    fn decode(value: SqliteValueRef<'r>) -> Result<bool, Error> {
         Ok(value.int() != 0)
     }
 }

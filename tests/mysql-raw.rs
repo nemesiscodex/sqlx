@@ -4,8 +4,7 @@ use sqlx::{Cursor, Executor, MySql, Row};
 use sqlx_test::new;
 
 /// Test a simple select expression. This should return the row.
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn test_select_expression() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 
@@ -20,8 +19,7 @@ async fn test_select_expression() -> anyhow::Result<()> {
 /// Test that we can interleave reads and writes to the database
 /// in one simple query. Using the `Cursor` API we should be
 /// able to fetch from both queries in sequence.
-#[cfg_attr(feature = "runtime-async-std", async_std::test)]
-#[cfg_attr(feature = "runtime-tokio", tokio::test)]
+#[sqlx_rt::test]
 async fn test_multi_read_write() -> anyhow::Result<()> {
     let mut conn = new::<MySql>().await?;
 

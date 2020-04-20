@@ -1,42 +1,49 @@
-use crate::decode::Decode;
-use crate::encode::Encode;
-use crate::sqlite::type_info::{SqliteType, SqliteTypeAffinity};
-use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteTypeInfo, SqliteValue};
+use std::borrow::Cow;
+
+use crate::database::{Database, HasArguments};
+use crate::decode::{Decode, Error};
+use crate::encode::{Encode, IsNull};
+use crate::sqlite::{Sqlite, SqliteArgumentValue, SqliteArguments, SqliteTypeInfo, SqliteValueRef};
 use crate::types::Type;
 
-impl Type<Sqlite> for [u8] {
+impl Type<Sqlite> for &'_ [u8] {
     fn type_info() -> SqliteTypeInfo {
-        SqliteTypeInfo::new(SqliteType::Blob, SqliteTypeAffinity::Blob)
+        SqliteTypeInfo::BLOB
+    }
+}
+
+impl<'q> Encode<'q, Sqlite> for &'q [u8] {
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values
+            .push(SqliteArgumentValue::Blob(Cow::Borrowed(self)));
+
+        IsNull::No
+    }
+}
+
+impl<'r> Decode<'r, Sqlite> for &'r [u8] {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, Error> {
+        Ok(value.blob())
     }
 }
 
 impl Type<Sqlite> for Vec<u8> {
     fn type_info() -> SqliteTypeInfo {
-        <[u8] as Type<Sqlite>>::type_info()
+        <&[u8] as Type<Sqlite>>::type_info()
     }
 }
 
-impl Encode<Sqlite> for [u8] {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        // TODO: look into a way to remove this allocation
-        values.push(SqliteArgumentValue::Blob(self.to_owned()));
+impl<'q> Encode<'q, Sqlite> for Vec<u8> {
+    fn encode(self, args: &mut SqliteArguments<'q>) -> IsNull {
+        args.values
+            .push(SqliteArgumentValue::Blob(Cow::Owned(self)));
+
+        IsNull::No
     }
 }
 
-impl Encode<Sqlite> for Vec<u8> {
-    fn encode(&self, values: &mut Vec<SqliteArgumentValue>) {
-        <[u8] as Encode<Sqlite>>::encode(self, values)
-    }
-}
-
-impl<'de> Decode<'de, Sqlite> for &'de [u8] {
-    fn decode(value: SqliteValue<'de>) -> crate::Result<&'de [u8]> {
-        Ok(value.blob())
-    }
-}
-
-impl<'de> Decode<'de, Sqlite> for Vec<u8> {
-    fn decode(value: SqliteValue<'de>) -> crate::Result<Vec<u8>> {
-        <&[u8] as Decode<Sqlite>>::decode(value).map(ToOwned::to_owned)
+impl<'r> Decode<'r, Sqlite> for Vec<u8> {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, Error> {
+        Ok(value.blob().to_owned())
     }
 }

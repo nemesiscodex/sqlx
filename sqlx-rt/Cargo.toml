@@ -1,0 +1,18 @@
+[package]
+name = "sqlx-rt"
+version = "0.1.0-pre"
+repository = "https://github.com/launchbadge/sqlx"
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[features]
+runtime-actix = [ "actix-rt", "tokio", "sqlx-rt-macros/runtime-actix" ]
+runtime-async-std = [ "async-std", "tokio", "sqlx-rt-macros/runtime-async-std" ]
+runtime-tokio = [ "tokio", "sqlx-rt-macros/runtime-tokio" ]
+
+[dependencies]
+sqlx-rt-macros = { version = "0.1.0-pre", path = "../sqlx-rt-macros" }
+actix-rt = { version = "1.1.0", optional = true }
+async-std = { version = "1.5.0", features = [ "unstable" ], optional = true }
+tokio = { version = "0.2.17", optional = true, features = [ "blocking", "tcp", "uds", "macros", "rt-core", "rt-threaded", "time", "dns", "io-util" ] }
+smol = "0.1.7"
